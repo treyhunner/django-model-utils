@@ -2,6 +2,7 @@ from types import ClassType
 import warnings
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models.fields.related import OneToOneField
 from django.db.models.manager import Manager
@@ -28,7 +29,7 @@ def nested_getattr(obj, deep_attr):
     for attr in attrs:
         try:
             obj = getattr(obj, attr)
-        except AttributeError:
+        except (AttributeError, ObjectDoesNotExist):
             return None
     return obj
 
