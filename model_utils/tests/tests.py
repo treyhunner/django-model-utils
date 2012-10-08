@@ -11,7 +11,7 @@ from django.test import TestCase
 
 from django.contrib.contenttypes.models import ContentType
 
-from model_utils import Choices
+from model_utils import Choices, replace_model_obj
 from model_utils.fields import get_excerpt, MonitorField
 from model_utils.managers import QueryManager, manager_from
 from model_utils.models import StatusModel, TimeFramedModel
@@ -660,3 +660,67 @@ class CreatePassThroughManagerTests(TestCase):
         pickled_qs = pickle.dumps(qs)
         unpickled_qs = pickle.loads(pickled_qs)
         self.assertEqual(unpickled_qs.secured().count(), 1)
+
+
+class ReplaceModelObjTests(TestCase):
+    def setUp(self):
+        self.dude = Dude.objects.create(name='Old Dude')
+        Spot.objects.create(name='The Crib', owner=self.dude, closed=True,
+                            secure=False)
+        Car.objects.create(name='Hyundai', owner=self.dude)
+        Car.objects.create(name='Volkswagen', owner=self.dude)
+
+    def test_replace_valid_model(self):
+        new_dude = Dude.objects.create(name='New Dude')
+        replace_model_obj(self.dude, new_dude)
+        self.assertEqual(self.dude.cars_owned.count(), 0)
+        self.assertEqual(self.dude.spots_owned.count(), 0)
+        self.assertEqual(new_dude.cars_owned.count(), 2)
+        self.assertEqual(new_dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 1)
+
+    def test_replace_valid_empty_model(self):
+        new_dude = Dude.objects.create(name='Really Old Dude')
+        replace_model_obj(new_dude, self.dude)
+        self.assertEqual(self.dude.cars_owned.count(), 2)
+        self.assertEqual(self.dude.spots_owned.count(), 1)
+        self.assertEqual(new_dude.spots_owned.count(), 0)
+        self.assertEqual(new_dude.cars_owned.count(), 0)
+        self.assertEqual(Dude.objects.count(), 1)
+
+    def test_replace_valid_model_no_delete(self):
+        new_dude = Dude.objects.create(name='New Dude')
+        replace_model_obj(self.dude, new_dude, delete=False)
+        self.assertEqual(self.dude.cars_owned.count(), 0)
+        self.assertEqual(self.dude.spots_owned.count(), 0)
+        self.assertEqual(new_dude.cars_owned.count(), 2)
+        self.assertEqual(new_dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 2)
+
+    def test_replace_same_model(self):
+        replace_model_obj(self.dude, self.dude)
+        self.assertEqual(self.dude.cars_owned.count(), 2)
+        self.assertEqual(self.dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 1)
+
+    def test_replace_unsaved_model(self):
+        new_dude = Dude(name='Unsaved New Dude')
+        self.assertRaises(Exception, replace_model_obj, (self.dude, new_dude))
+        self.assertEqual(self.dude.cars_owned.count(), 2)
+        self.assertEqual(self.dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 1)
+
+    def test_replace_invalid_old_model(self):
+        old_car = Car.objects.create(owner=self.dude)
+        new_dude = Dude.objects.create(name='New Dude')
+        self.assertRaises(Exception, replace_model_obj, (old_car, new_dude))
+        self.assertEqual(self.dude.cars_owned.count(), 3)
+        self.assertEqual(self.dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 2)
+
+    def test_replace_invalid_new_model(self):
+        new_car = Car.objects.create(owner=self.dude)
+        self.assertRaises(Exception, replace_model_obj, (self.dude, new_car))
+        self.assertEqual(self.dude.cars_owned.count(), 3)
+        self.assertEqual(self.dude.spots_owned.count(), 1)
+        self.assertEqual(Dude.objects.count(), 1)
