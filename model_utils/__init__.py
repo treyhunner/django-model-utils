@@ -133,3 +133,12 @@ class Choices(object):
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__,
                           ', '.join(("%s" % str(i) for i in self._full)))
+
+
+def replace_model_obj(old_obj, new_obj):
+    """Change ``old_obj`` relations to ``new_obj`` and delete ``old_obj``"""
+    for related_obj in new_obj._meta.get_all_related_objects():
+        (related_obj.model._default_manager
+         .filter(**{related_obj.field.name: old_obj})
+         .update(**{related_obj.field.name: new_obj}))
+    old_obj.delete()
