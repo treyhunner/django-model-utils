@@ -19,6 +19,8 @@ master (unreleased)
 
 - Fixed lack of ``get_FOO_display`` method for ``StatusField``. Fixes GH-41.
 
+- Fixed ``FieldTracker`` usage on inherited models.  Fixes GH-57.
+
 
 1.3.1 (2013.04.11)
 ------------------
